@@ -1,0 +1,64 @@
+services:
+  # Custom php image
+  app:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+      args:
+        user: asilva
+        uid: 1000
+
+    image: alannonato/jtp
+    working_dir: /var/www/
+    volumes:
+      - ./:/var/www/
+    restart: always
+    depends_on:
+      - redis
+      - queue
+    networks:
+      - jtp-network
+  # Nginx
+  nginx:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - 8000:80
+    volumes:
+      - ./:/var/www/
+      - ./docker/nginx/:/etc/nginx/conf.d/
+    networks:
+      - jtp-network
+  # Redis
+  redis:
+    image: redis:latest
+    networks:
+      - jtp-network
+  # db
+  mysql:
+    image: mysql:5.7.22
+    ports:
+      - 3306:3306
+    volumes:
+      - ./.docker/mysql:/var/lib/mysql
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    networks:
+      - jtp-network
+  # Queue work
+  queue:
+    image: php:8.2.19-fpm
+    volumes:
+      - ./:/var/www/
+    command: "php artisan queue:work"
+    depends_on:
+      - redis
+    networks:
+          - jtp-network
+
+networks:
+  jtp-network:
+    driver: bridge
